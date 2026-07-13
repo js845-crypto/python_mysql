@@ -1,0 +1,53 @@
+create database test;
+
+show tables;
+
+create table product(
+	id int auto_increment primary key,
+    name varchar(30),
+    price int
+);
+
+-- DDL에는 create / drop / alter가 있다. 근데 그냥 table에 우측 클릭 해서 drop, alter table하는게 더 편함
+-- DML에는 insert / update / delete / select가 있고 select가 데이터 분석가한테 제일 중요함
+ 
+
+-- 아래부터는 DML 이고 test.product() 해야하지만 이미 들어와있으므로 생략 가능. 컬럼 순서와 value 순서를 맞춰야함 
+-- name부터 쓰자 id는 자동임
+-- 작은 따옴표로 써야함 무조건 문자열
+ insert into product(name, price)
+ values('마우스', 3000);
+ select * from product;
+ 
+ update product 
+ set price = 50000
+ where id = 1 ;
+ delete from product where id = 10;
+ SET SQL_SAFE_UPDATES = 0;
+ INSERT INTO product(name)
+VALUES('모니터');
+INSERT INTO product(name, price)
+VALUES('카메라', NULL);
+-- 둘 다 정상적으로 price값은 NULL로 저장된다.
+select * from product;
+commit;
+-- insert, update, delete 실행 후 실행된 결과 행의 갯수 반환
+ 
+ CREATE TABLE product2 (
+    id INT AUTO_INCREMENT PRIMARY KEY, -- 기본키는 자동으로 NOT NULL
+    name VARCHAR(30), -- NOT NULL 옵션이 없으면 NULL값 허용
+    price INT NOT NULL -- price는 NULL 값을 허용하지 않는다
+);
+
+INSERT INTO product2(name) 
+VALUES('모니터');
+
+INSERT INTO product2(name, price) 
+VALUES('모니터', null);
+select * from product2;
+
+ SET SQL_SAFE_UPDATES = 0;
+DELETE FROM product 
+WHERE price = 3000;
+drop table product2; -- drop은 삭제
+delete from product where id = 14;
