@@ -1,0 +1,49 @@
+
+select * from country where country_id = 86; -- 대한민국 나라의 primary key = 86
+
+select * from city
+where country_id = 86; -- 대한민국이라는 country에 city가 5개 연결되잇다. 1:5 관계
+
+
+-- inner join : 양쪽에 같은 key 있는 두개의 table 연결, 
+-- city와 country 두개의 테이블을 country_id로 join!
+-- city의 country_id는 FK, country의 country_id는 PK
+select
+	ci.city, ci.country_id, co.country
+from city ci
+inner join country co
+on ci.country_id = co.country_id
+where ci.country_id = 50;
+
+-- address 테이블에서 찾아서 어느 country인지 찾아가는 계층적 과정
+select * from address;
+select * from city where city_id = 463;
+select * from country where country_id = 50
+
+
+-- 3개의 table inner join
+
+SELECT
+    co.country,
+    c.city,
+    a.address,
+    a.city_id
+FROM country AS co
+INNER JOIN city AS c
+    ON co.country_id = c.country_id
+INNER JOIN address AS a
+    ON c.city_id = a.city_id
+where co.country = 'japan'
+order by c.city;
+
+
+-- 오늘 하는 것중에 제일 중요한 개념 : 중간(연결) 테이블
+SELECT
+    f.title,
+    c.name AS category
+FROM film AS f  -- ① film 테이블부터 시작한다.
+INNER JOIN film_category AS fc
+    ON f.film_id = fc.film_id  -- ② 영화의 film_id와 film_category의 film_id를 연결한다.
+INNER JOIN category AS c
+    ON fc.category_id = c.category_id  -- ③ film_category의 category_id와 category의 category_id를 연결한다.
+order by title;
