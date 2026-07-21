@@ -1,0 +1,374 @@
+
+-- group by
+
+-- group by 하기 앞 서 복습 겸 코드 실행 순서
+
+-- 각 코드 옆 숫자는 실행 순서
+select actor_id, first_name -- 3
+from actor -- 1
+where actor_id % 2 =0 -- 2
+order by actor_id desc -- 3
+limit 10 ;  -- 5
+
+
+use test;
+
+create table person(
+	id int primary key,
+	name varchar(50),
+	gender char(1)
+);
+
+INSERT INTO person (id, name, gender) VALUES
+(1, '김민수', 'M'),
+(2, '이영희', 'F'),
+(3, '박지훈', 'M'),
+(4, '최수진', 'F'),
+(5, '정우성', 'M'),
+(6, '한지민', 'F'),
+(7, '오세훈', 'M'),
+(8, '윤아름', 'F'),
+(9, '강동원', 'M'),
+(10, '송지은', 'F');
+
+-- select *
+-- from person -- 1 결과셋
+-- where id > 2 -- 2 결과셋
+-- group by gender; -- gender의 값으로 grouping     3 계산셋 , M그룹 하나 F그룹 하나 총 계산셋 두개 생김, 2개의 결과물 나올 수 있음
+
+
+select * -- select id , name  이렇게 하면 에러 발생. group by는 계산셋이므로 조회가 안된다. 공통된 group화된 name 값이 뭐냐고 묻는것이므로 !
+from person -- 1 결과셋
+group by gender ; -- 2 계산셋 2개 -> 2개의 계산셋은 조회할 수가 없고 계산 목적이다. gender = m, gender = f 이렇게 두개. 
+-- group by하면 계산셋이 됨.
+
+select gender -- group by에 사용한 column명은 column을 대표하는 직계 함수가 된다. select에 사용 가능. 이것은 조회가 아니다.
+from person
+group by gender;
+
+select gender, count(*) --  count에 *은 null까지 counting한다
+from person
+group by gender
+
+select gender, count(*), sum(id)
+from person
+group by gender;
+
+select rating, count(*), sum(length), avg(length), max(length), min(length)
+from film -- 결과셋 1개
+group by rating -- 계산셋 5개
+
+
+select *
+from
+	(select rating,
+    count(*) c ,
+    sum(length) s ,
+    avg(length) a ,	
+    max(length) max,
+    min(length) min
+	from film -- 결과셋 1개
+	group by rating) t -- 계산셋 5개
+    where t.s > 25000;
+    
+-- 위의 방식은 너무 불편해서 집계함수 계산셋을 필터링하는 함수 having이 나왔다    
+    
+
+-- select 집계함수 5번째
+-- from 1번째
+-- where 2번째
+-- group by 3번째
+-- having 4번째 집계함수 실행 후 나와야함
+
+SELECT rating, 
+       COUNT(*) as 영화수
+FROM film
+group by rating;
+
+
+
+
+SELECT rating,
+       AVG(rental_rate) AS 평균대여료
+FROM film
+GROUP BY rating;
+
+SELECT rating,
+       SUM(length) AS 총상영시간
+FROM film
+GROUP BY rating;
+
+SELECT rating,
+       MAX(length) AS 최대길이
+FROM film
+GROUP BY rating;
+
+SELECT rating,
+       MIN(length) AS 최소길이
+FROM film
+GROUP BY rating;
+
+SELECT rating,
+       COUNT(*) AS 영화수,
+       AVG(length) AS 평균길이,
+       MAX(length) AS 최대길이,
+       MIN(length) AS 최소길이
+FROM film
+GROUP BY rating;
+
+
+select count(*) , avg(length) "전체 러닝타임 평균" -- as에 공백이 들어가면 " " 안에 작성
+from film;
+-- group by null이 생략되있는 것과 동일함. 전체를 하나의 계산셋으로 생성 후 집계함.
+
+
+-- action 최대러닝타임의 영화보다 러닝타임이 긴 영화들 조회
+with f3join as
+(select c.name name, f.title title, f.length length
+from category c
+join film_category fc
+on c.category_id = fc.category_id
+join film f
+on fc.film_id = f.film_id)
+
+select *
+from film
+where length > (select max(length)
+				from f3join
+				where name = 'Action');
+
+select max(length)
+from f3join
+where name = 'Action'
+group by null;
+
+
+with f3join as
+(select c.name name, f.title title, f.length length
+from category c
+join film_category fc
+on c.category_id = fc.category_id
+join film f
+on fc.film_id = f.film_id)
+
+
+select title, length, (select max(length) from f3join where name = 'Children') "Childeren MAX"
+from film
+where length> (select max(length)
+				from f3join
+                where name = 'Children')
+order by length desc;
+
+
+SELECT rating,
+       COUNT(*)
+FROM film -- 결과셋 1
+WHERE rating IN ('R', 'G') -- 결과셋 1
+GROUP BY rating -- 계산셋 R / G 두개
+order by c desc -- 최종 결과에 대한 정렬
+limit 1; -- 최종 결과에 대한 정렬에 대한 제한
+
+
+
+SELECT rating,
+       AVG(length) AS avg_length
+FROM film
+WHERE rating <> 'R'
+GROUP BY rating
+HAVING AVG(length) >= 120;
+
+
+SELECT rating,
+       AVG(length) AS avg_length
+FROM film
+GROUP BY rating
+ORDER BY avg_length DESC;
+
+select category_id from category;
+
+
+select category_id from film_category;
+
+select distinct category_id from film_category;
+
+select category_id from category -- 전체 카테고리
+except -- 차집합
+select distinct category_id from film_category; -- 영화가 존재하는 카테고리
+
+
+select *
+from category
+where category_id =
+(select category_id from category -- 전체 카테고리
+except -- 차집합
+select distinct category_id from film_category) -- 영화가 존재하는 카테고리
+
+-- 카테고리에 영화가 존재하는 카테고리 -- > 몇개?
+-- 영화가 존재하지 않는 카테고리 --> 몇개?
+
+-- left join : category x film_category
+select c.category_id , count(fc.film_id) -- count(*)하면 null도 counting된다
+from category c left join film_category fc
+on c.category_id = fc.category_id
+-- order by c.category_id desc
+-- where fc.film_id is null
+group by c.category_id
+-- 위의 코드를 from절로 옮기자
+
+
+select
+	
+	sum(case when t.cnt = 0 then 1 else 0 end) "영화가 존재하지 않는 카테고리",
+    sum(case when t.cnt > 0 then 1 else 0 end) "영화가 존재하는 카테고리"
+from 
+	(select c.category_id id , count(fc.film_id) cnt -- count(*)하면 null도 counting된다
+	from category c left join film_category fc
+	on c.category_id = fc.category_id
+-- order by c.category_id desc
+-- where fc.film_id is null
+	group by c.category_id) t
+    
+    
+-- 수업시간에 한 코드들 25번 groupby 연습문제 게시글에 코드 올려놓는다고 하심
+
+
+-- 이제부터 23 게시글
+
+CREATE TABLE student (
+    id INT PRIMARY KEY,
+    name VARCHAR(20) NOT NULL,
+    gender CHAR(1) NOT NULL,
+    age INT NOT NULL
+);
+
+
+INSERT INTO student (id, name, gender, age) VALUES
+(1, '김민수', 'M', 20),
+(2, '이영희', 'F', 22),
+(3, '박지훈', 'M', 21),
+(4, '최수진', 'F', 23),
+(5, '정우성', 'M', 19),
+(6, '한지민', 'F', 20),
+(7, '오세훈', 'M', 24),
+(8, '윤아름', 'F', 21),
+(9, '강동원', 'M', 22),
+(10, '송지은', 'F', 19);
+
+select *
+from student;
+
+select gender,
+ count(age), 
+ avg(age), 
+ max(name) , 
+ sum(age), 
+ group_concat(name order by name asc separator ' ')-- ㄱㄴㄷ 순서에서 제일 끝에가 각 group 별로 나옴, group_concat(name)하면 정렬안되고 기본으로 콤마로 이름들을 구분함. ' / ' ,' , ' 등 문자 다 가능
+from student
+group by gender;
+-- 숫자에만 사용가능한 집계함수 avg(), sum()(error는 안생기지만)
+-- 숫자, 문자 다 되는 것은 count(), max(), min()
+-- 문자에만 가능한 것은 group_concat(문자열 값들을 연결) , 그냥 concat()이랑 다르다
+
+insert into student(id, name, gender, age) -- 같은 이름 송지은 추가
+values(11, '송지은', 'F', 20);
+
+select gender,
+ count(distinct name), 
+ avg(age), 
+ max(name) , 
+ sum(age) 
+ from student
+group by gender;
+-- 숫자에만 사용가능한 집계함수 avg(), sum()(error는 안생기지만)
+-- 숫자, 문자 다 되는 것은 count(), max(), min()
+-- 문자에만 가능한 것은 group_concat(문자열 값들을 연결) , 그냥 concat()이랑 다르다
+
+select gender, avg(age), variance(age), stddev(age)
+from student
+group by gender
+
+-- 영화에 출연한 배우목록
+SELECT
+    f.title,
+    GROUP_CONCAT(
+        CONCAT(a.first_name, ' ', a.last_name)
+        ORDER BY a.last_name
+        SEPARATOR ', '
+    ) AS actors
+FROM film f
+INNER JOIN film_actor fa
+    ON f.film_id = fa.film_id
+INNER JOIN actor a
+    ON fa.actor_id = a.actor_id
+GROUP BY f.film_id, f.title
+ORDER BY f.title;
+
+-- 위에 보다 간단하게 
+-- 영화에 출연한 배우목록
+SELECT
+    f.title,
+    -- a.first_name          group by f.title하면 이거 주석처리해야 오류 안남
+    count(*),
+    group_concat(a.first_name order by a.first_name) 출연배우
+FROM film f
+INNER JOIN film_actor fa
+    ON f.film_id = fa.film_id
+INNER JOIN actor a
+    ON fa.actor_id = a.actor_id
+group by f.title
+
+
+SELECT
+    c.name,
+    COUNT(*) AS movie_count,
+    GROUP_CONCAT(f.title ORDER BY f.title)
+FROM category c
+JOIN film_category fc
+ON c.category_id = fc.category_id
+JOIN film f
+ON fc.film_id = f.film_id
+GROUP BY c.name
+HAVING COUNT(*) >= 60
+order by count(*) desc;
+
+
+SELECT
+    c.name,
+    COUNT(DISTINCT f.rating) AS rating_count중복제거카운트, 
+    COUNT(*) AS 영화수
+FROM category c
+JOIN film_category fc
+ON c.category_id = fc.category_id
+JOIN film f
+ON fc.film_id = f.film_id
+GROUP BY c.name;
+
+
+
+SELECT
+    c.name,
+    avg(f.length) 평균,
+    VARIANCE(f.length) AS "분산(평균과의 거리에 제곱)",
+    STDDEV(f.length) AS "표준편차(분산에 제곱근)"
+FROM category c
+JOIN film_category fc
+ON c.category_id = fc.category_id
+JOIN film f
+ON fc.film_id = f.film_id
+GROUP BY c.name;
+
+
+SELECT
+    c.name,
+    avg(f.length) 평균,
+    VARIANCE(f.length) AS "분산(평균과의 거리에 제곱)",
+    STDDEV(f.length) AS "표준편차(분산에 제곱근)"
+FROM category c
+JOIN film_category fc
+ON c.category_id = fc.category_id
+JOIN film f
+ON fc.film_id = f.film_id
+GROUP BY c.name
+ORDER BY STDDEV(f.length) ASC;
+
+
