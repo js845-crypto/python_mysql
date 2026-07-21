@@ -1,0 +1,287 @@
+-- left join ( right join은 left join과 같다 순서만 바꾸면 됨)
+
+insert into country(country)
+values('New Land'); -- country에 새로 추가된 newland는 city가 연결안되서 inner join하면 안나오게 된다.
+
+
+select * from country;
+select * from country; -- 부모
+select * from city ; -- 자식
+
+select * 
+from country co left join city ci
+on ci.country_id = co.country_id
+where co.country = 'New Land'; -- left join하면 null로 left table이 전부 나오게 된다
+
+
+select co.country, ci.country_id
+from country co left join city ci
+on ci.country_id = co.country_id
+where ci.country_id is null;
+
+
+select * from category;
+select * from film;
+select * from film_category; -- film table에 category table이 연결 안되있어서 film_category table이라는 1:N 관계를 만족시키기 위한 중간 table이 있다
+
+insert into category(name)
+values('KContents') ; -- 한류 장르 추가
+select * from category;
+
+select *
+from film_category;
+
+-- 새로 추가한 kcontents는 안보이는 inner join 두번한 것. 
+select f.title, c.name
+from film_category fc inner join category c
+on fc.category_id = c.category_id
+inner join film f
+	on fc.film_id = f.film_id;
+
+
+
+select c.name, f.title
+from category c left join film_category fc
+	on fc.category_id = c.category_id
+left join film f
+	on fc.film_id = f.film_id
+where f.title is null;
+
+-- 여기서부터는 cross join
+
+CREATE TABLE student (
+    student_id INT PRIMARY KEY,
+    student_name VARCHAR(30)
+);
+
+INSERT INTO student VALUES
+(1, '홍길동'),
+(2, '김철수'),
+(3, '이영희');
+
+CREATE TABLE subject (
+    subject_id INT PRIMARY KEY,
+    subject_name VARCHAR(30)
+);
+INSERT INTO subject VALUES
+(101, 'SQL'),
+(102, 'Python'),
+(103, 'Power BI');
+
+-- 과목당 성적표를 우편 배송 몇장?
+-- 과목당 출석부를 몇 개?
+-- 경우의 수 n개 행 , m개 행 -> n*m
+select *
+from student st cross join subject sub
+
+-- inner join
+-- outer join : left ,right , full
+-- cross join
+-- self join
+
+
+-- self cross join는 student table 내에서 팔로우 하는 최대의 경우의 수
+select *
+from student s1 cross join student s2 -- cross join은 on조건이 필요없다, 또한 from -> join -> where 순서로 실행된다 유의
+where s1.student_name <> s2.student_name;  -- 자기 자신은 빼야함
+
+select count(*)
+from student s1 cross join student s2 -- cross join은 on조건이 필요없다, 또한 from -> join -> where 순서로 실행된다 유의
+where s1.student_name <> s2.student_name;  -- 자기 자신은 빼야함
+
+ -- 여기서부터는 self join, 하나의 table을 여러번 join하는 것
+ 
+ use test;
+ CREATE TABLE employee (
+    emp_id INT PRIMARY KEY,
+    emp_name VARCHAR(30),
+    manager_id INT
+);
+ 
+ INSERT INTO employee VALUES
+(1, '김부장', NULL),
+(2, '이과장', 1),
+(3, '박대리', 2),
+(4, '최사원', 2),
+(5, '정사원', 3),
+(6, '한인턴', 4);
+
+select * from employee;
+
+SELECT e1.emp_id,
+	   e1.emp_name AS 직원,
+       ifnull(e2.emp_name, '없음') AS 관리자
+ -- 같은 테이블을 두 번 사용하므로 오류 안 생기게 별칭(alias)을 붙인다.
+FROM employee e1
+LEFT JOIN employee e2
+ON e1.manager_id = e2.emp_id;
+
+
+-- 여기서부터는 집합 쿼리
+-- 집합 쿼리는 두개 이상의 select 결과물을 합치는 것
+use sakila;
+
+SELECT first_name
+FROM actor;
+
+select first_name
+from customer;
+
+-- select first_name 두개의 결과를 합쳐줌 , 다만 중복을 제거함 , 중복을 제거하려면 union all 해야함, 속도는 union all이 훨씬 빠르다
+
+select first_name
+from actor
+union
+select first_name
+from customer;
+
+-- 두개가 겹치면 첫번째 column이 나온다. 아니면 as로 별칭을 주면 된다. 또한 column명이 달라도 상관없다 data type만 체크함.
+select t.name
+from
+(select first_name as name from actor
+union
+select last_name as name from customer) t
+where t.name like '%ab%';
+
+
+select count(*) from
+(select first_name
+from actor
+union
+select first_name
+from customer) t;
+
+-- 교집합
+select first_name
+from actor
+intersect
+select first_name
+from customer;
+
+-- count() 함수, table row 갯수
+select count(*)
+from film;
+
+-- avg() 함수 , table row 값들의 평균
+select avg(length)
+from film;
+
+-- sum() 함수, table row 값들의 합
+select sum(length)
+from film;
+-- max() 함수 , table row 값들의 최댓값
+select max(length)
+from film;
+
+-- min() 함수
+select min(length)
+from film;
+
+-- suquery : select 안의 select, 즉 자식 select
+select round(avg(length)) from film; -- 평균 115로 나옴
+select title, length, 115 전체평균 from film;
+
+-- scalar subquery
+-- 위와같이 두개의 query로 하지말고 하나의 query로 하자, 이것이 subquery 이용
+select
+	title,
+    length,
+    (select round(avg(length)) from film) 전체평균 -- subquery
+from film;
+
+select
+	title,
+    length,
+    (select avg(length), sum(length) from film) 전체평균 -- select subquery는 무조건 하나의 scalar 값으로 나와야함, 오류 발생
+from film;
+
+
+select
+	title,
+    length,
+    (select title from film) -- 이것도 오류 발생한다 단일 row 또는 column 값이 아니라서
+from film;
+
+
+select
+	title,
+    length,
+    (select title from film where film_id = 1) -- 단일 scalar 값이라서 오류 발생 안한다.
+from film;
+
+
+-- inline view
+-- FROM절에 사용하는 서브쿼리 , 실행 결과를 임시 테이블(View)처럼 사용
+
+select t.title
+from (select * from film where length > 120) t -- as가 필요함 
+where t.title like 'b%';
+
+
+select  title
+from film
+where title like 'b%' and length > 120; -- 위의 코드와 동일하다, 그러나 이 코드가 속도가 더 빨라서 mysql 자체에서 이렇게 바꿔버린다
+-- 중요한 것은 from 절에서 select가 올 수 있고 이것을 inline view라고 한다
+
+
+-- where 절에 사용하는 서브 쿼리, 단일 행, 다중 행 결과 반환 가능
+
+select avg(length) from film;
+
+select *
+from film
+where length > (select avg(length) from film);
+
+-- 요약 : select절 ( scalar subquery)
+--       from절( inline view )
+--      where 절( subquery )
+
+
+-- inline view 예제
+SELECT *
+FROM (
+    SELECT title, rental_rate
+    FROM film
+) AS f
+WHERE rental_rate >= 4.99;	
+
+
+-- where 절 subquery 예제
+SELECT title, length
+FROM film
+WHERE length > (
+    SELECT AVG(length)
+    FROM film
+);
+
+
+-- where 절 subquery에 자주 사용되는 연산자
+
+select *
+from film
+where rental_rate > (select avg(rental_rate) from film);
+
+select *
+from film
+where rating = (select rating from film
+					where title = 'ADAPTATION HOLES' or title = 'ACE GOLDFINGER'); -- 오류 발생한다 = 연산자 사용할 땐 where 절에서 subquery로 하나의 값만 나와야함
+select *
+from film
+where rating in (select rating from film
+					where title = 'ADAPTATION HOLES' or title = 'ACE GOLDFINGER'); -- in을 사용하면 오류가 없음 실행됨. rating이 G, NC17 둘중에 만족되는 것을 출력
+
+
+select *
+from film
+where rating not in (select rating from film
+					where title = 'ADAPTATION HOLES' or title = 'ACE GOLDFINGER');
+
+select *
+from film
+where (rating , rental_rate) >  -- column은 여러개여도 상관이 없다 row가 문제이다, 오류 안생김, 우측에 여러값이 오면 좌측에도 여러 값을 받아주는 vector 형태로 오면 된다
+	(select rating, rental_rate from film
+    where title = 'ACE GOLDFIKNGER');
+
+
+-- 2열 이상 -> 하나의 scalar 취급 -> = , > , < 이런 연산자 사용
+-- 2행 이상 -> 여러개 값 -? 벡터취급 -? in , not in사용
