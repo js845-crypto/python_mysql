@@ -1,0 +1,97 @@
+    SELECT AVG(rental_rate)
+    FROM film;
+
+
+SELECT title, rental_rate
+FROM film
+WHERE rental_rate >
+(
+    SELECT AVG(rental_rate)
+    FROM film
+);
+
+ SELECT category_id
+    FROM category
+    WHERE name IN ('Action', 'Comedy');
+
+
+
+
+
+SELECT film_id, category_id
+FROM film_category
+WHERE category_id IN
+( -- 서브 쿼리의 결과셋이 2행 이상
+    SELECT category_id
+    FROM category
+    WHERE name IN ('Action', 'Comedy')
+);
+
+
+
+
+SELECT film_id, category_id
+FROM film_category
+WHERE category_id not IN
+( -- 서브 쿼리의 결과셋이 2행 이상
+    SELECT category_id
+    FROM category
+    WHERE name IN ('Action', 'Comedy')
+);
+
+
+
+-- exists는 메인쿼리와 서브 쿼리의 inner join과 유사하지만 메인 테이블의 내용만 나온다는 것이 차이다.
+
+SELECT *
+FROM category c  -- main 쿼리
+WHERE EXISTS
+(   -- 서브 쿼리
+    SELECT *
+    FROM film_category fc
+    WHERE fc.category_id = c.category_id -- main 쿼리와 sub 쿼리의 join이 발생하고 이 where 조건이 join 조건으로 작용한다
+);
+
+-- inner join
+select * -- select c.*하면 위의 exists랑 완전히 같은 결과 나옴 
+from category c inner join film_category fc
+on fc.category_id = c.category_id;
+
+
+-- not exists
+SELECT *
+FROM category c
+WHERE NOT EXISTS
+(
+    SELECT *
+    FROM film_category fc
+    WHERE fc.category_id = c.category_id
+);
+
+-- 위의 not exists랑 결과가 완전히 같음
+select c.* -- select c.*하면 위랑 완전히 같은 결과 나옴 
+from category c left join film_category fc
+on fc.category_id = c.category_id
+where fc.category_id is null
+order by c.category_id desc;
+
+
+
+-- 마찬가지로 not exists랑 결과가 같은 두번째 쿼리 방식
+select c.* -- select c.*하면 위랑 완전히 같은 결과 나옴 
+from category c left join film_category fc
+on fc.category_id = c.category_id
+except
+select c.*
+from category c inner join film_category fc
+on fc.category_id = c.category_id;
+
+
+-- exists, not exists는 결국 join이랑 같으나 exists는 sub 쿼리쪽의 column을 출력할수 없다 단지 서브 테이블에 데이터가 존재하는지만 확인, sub 쿼리 테이블 결과 출력하려면 join 사용해야함
+--  쿼리가 엄청 길어지면 exists, not exists 사용하면 쿼리를 줄일 수 있다
+-- 즉 exists, join간에 장단점이 각각 있음
+
+
+-- 여기서부터 게시글 25 연습문제 및 과제
+
+
