@@ -1,5 +1,5 @@
 -- 여기서부터는 게시글 26 윈도우 함수
--- window 함수는 최초의 from table에서 파티션을 생성후 원본set (from table)도 유지한다. 파티션으로 생성된 결과를 원본set(from table)과 결합(join, 집합 ,...)하는 것이 목적이다
+-- window 함수는 최초의 from table에서 파티션을 생성후 원본set (from table)도 유지한다. 파티션으로 생성된 결과는 sub query이다! sub query를 원본query set(from table)과 결합(join, 집합 ,...)하는 것이 목적이다
 -- group by와 다르게 원본 원본set(from table)을 유지한다
 
 
