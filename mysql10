@@ -1,0 +1,483 @@
+-- 게시글 29, 윈도우함수 연습문제
+
+
+-- 문제 1. 고객별 최근 3번 결제금액 합계 -> table payment 이용
+select customer_id,
+	   payment_date,
+       amount,
+       sum(amount) over(partition by customer_id order by payment_date asc rows between 2 preceding and current row ) '최근 3일 결제금액 합계'
+from payment
+order by customer_id, payment_date;
+
+-- 문제 2. 영화 길이의 누적 평균 
+select c.name, f.title, f.length,
+	avg(f.length) over(partition by c.name order by f.length asc rows between unbounded preceding and current row) ' 영화길이 평균'
+from category c inner join film_category fc
+	on c.category_id = fc.category_id
+    inner join film f
+    on fc.film_id = f.film_id;
+    
+-- 문제 3. 직원별 최근 5일 평균 매출
+
+-- 메인 query , with as로 감쌀 구문
+with t1 as (
+select staff_id, date(payment_date) '날짜', sum(amount) '하루총매출액'
+from payment
+group by staff_id, date(payment_date)
+)
+
+
+select staff_id, 날짜, 하루총매출액, 
+				avg(하루총매출액) over(partition by staff_id order by 날짜 asc rows between 4 preceding and current row) '최근 5일 평균'
+from t1;
+
+-- 이제 위의 query를 이용해서 문제 풀자
+-- 스탭별 5일동안 하루 매출의 평균중 가장 큰 하루 매출 데이터 조회
+with t1 as (
+select staff_id, date(payment_date) '날짜', sum(amount) '하루총매출액'
+from payment
+group by staff_id, date(payment_date)
+),
+
+
+t2 as(select staff_id, 날짜, 하루총매출액, 
+				avg(하루총매출액) over(partition by staff_id order by 날짜 asc rows between 4 preceding and current row) '최근 5일 평균'
+from t1
+)
+
+select staff_id, max(하루총매출액)
+from t2
+group by  staff_id;
+
+
+-- 5일 평균 중 최고 매출과 날짜까지 뽑기
+with t1 as (
+select staff_id, date(payment_date) '날짜', sum(amount) '하루총매출액'
+from payment
+group by staff_id, date(payment_date)
+),
+
+
+t2 as(select staff_id, 날짜, 하루총매출액, 
+				avg(하루총매출액) over(partition by staff_id order by 날짜 asc rows between 4 preceding and current row) '최근5일평균'
+from t1
+)
+
+select *
+from(
+	select *,
+    row_number() over(partition by staff_id order by 최근5일평균 desc) rn
+		
+	from t2) t3
+
+where t3.rn = 1;
+
+
+
+-- 같은 결과인 코드
+
+with t1 as (
+select staff_id, date(payment_date) '날짜', sum(amount) '하루총매출액'
+from payment
+group by staff_id, date(payment_date)
+),
+
+
+t2 as(select staff_id, 날짜, 하루총매출액, 
+				avg(하루총매출액) over(partition by staff_id order by 날짜 asc rows between 4 preceding and current row) '최근5일평균'
+from t1
+),
+
+
+t3 as(
+
+		select *,
+			row_number() over(partition by staff_id order by 최근5일평균 desc) rn
+		
+		from t2
+)
+select *
+from t3
+where t3.rn = 1;
+
+-- 문제 4번부턴 안함
+
+
+-- 게시글 28 recursive cte (with table)을 사용한 계층형 데이터 조회
+
+-- 1) CEO부터 모든 직원 조회
+CREATE TABLE emp (
+    emp_id INT PRIMARY KEY,
+    emp_name VARCHAR(30) NOT NULL,
+    manager_id INT NULL,
+    FOREIGN KEY (manager_id) REFERENCES emp(emp_id) -- 외래key가 자기자신 테이블의 key를 참조
+);
+
+
+INSERT INTO emp VALUES
+(1, 'CEO', NULL),
+(2, '영업본부장', 1),
+(3, '개발본부장', 1),
+(4, '관리본부장', 1),
+(5, '영업팀장', 2),
+(6, '해외영업팀장', 2),
+(7, '백엔드팀장', 3),
+(8, '프론트팀장', 3),
+(9, '인사팀장', 4),
+(10, '신입사원A', 7),
+(11, '신입사원B', 8);
+
+
+WITH RECURSIVE emp_tree AS
+(
+    -- 시작점
+    SELECT
+        emp_id,
+        emp_name,
+        manager_id,
+        1 AS level -- 시작 행(ROOT)의 레벨값은 1
+    FROM emp
+    WHERE manager_id IS NULL -- 시작 행(ROOT)의 조건
+
+    UNION ALL
+
+    -- 하위 직원 계속 찾기, 끝날때 까지 재귀(자기 자신을 이용해서 같은 작업을 반복) 호출
+    SELECT
+        e.emp_id,
+        e.emp_name,
+        e.manager_id,
+        t.level + 1
+    FROM emp e INNER JOIN emp_tree t
+         ON e.manager_id = t.emp_id
+)
+
+SELECT *
+FROM emp_tree;
+
+
+-- 2) 조직도 형태로 조회
+
+WITH RECURSIVE emp_tree AS
+(
+    SELECT
+        emp_id,
+        emp_name,
+        manager_id,
+        1 level
+    FROM emp
+    WHERE manager_id IS NULL
+
+    UNION ALL
+
+    SELECT
+        e.emp_id,
+        e.emp_name,
+        e.manager_id,
+        t.level + 1
+    FROM emp e
+    JOIN emp_tree t
+      ON e.manager_id=t.emp_id
+)
+
+SELECT
+    CONCAT(REPEAT('    ', level-1), emp_name) AS organization
+FROM emp_tree;
+
+
+-- 3) 전체 계층 경로(Path)를 같이 조회
+
+WITH RECURSIVE emp_tree AS
+(
+    SELECT
+        emp_id,
+        emp_name,
+        manager_id,
+        emp_name AS path
+    FROM emp
+    WHERE manager_id IS NULL
+
+    UNION ALL
+
+    SELECT
+        e.emp_id,
+        e.emp_name,
+        e.manager_id,
+        CONCAT(t.path,' > ',e.emp_name)
+    FROM emp e
+    
+    JOIN emp_tree t
+      ON e.manager_id=t.emp_id
+)
+
+SELECT *
+FROM emp_tree;
+
+    
+-- 4) 특정 직원의 모든 부하직원 조회
+WITH RECURSIVE emp_tree AS
+(
+    SELECT *
+    FROM emp
+    WHERE emp_name='개발본부장'
+
+    UNION ALL
+
+    SELECT e.*
+    FROM emp e
+    JOIN emp_tree t
+      ON e.manager_id=t.emp_id
+)
+
+SELECT *
+FROM emp_tree;
+
+
+
+
+ -- 6) 재귀를 이용해서 달력 만들기 
+ 
+-- 기초로서 숫자 여러개 만들기
+    
+    select 1
+    union all
+    select 2
+    union all
+    select 3; -- 이렇게 하면 숫자가 너무 많아서 일일히 하기 힘들다. 재귀 이용하자
+    
+    
+    -- 1~10까지 숫자 생성
+    
+    WITH RECURSIVE numbers AS
+(
+    SELECT 1 AS num
+
+    UNION ALL
+
+ -- join
+    SELECT num+1
+    FROM numbers 
+    WHERE num<10 -- join 조건
+)
+
+SELECT *
+FROM numbers;
+​
+
+-- 이제 원래의 목적 달력 날짜 만들기
+
+WITH RECURSIVE dates AS
+(
+    SELECT DATE('2026-07-01') dt
+
+    UNION ALL
+
+    SELECT DATE_ADD(dt, INTERVAL 1 DAY)
+    FROM dates
+    WHERE dt<'2026-07-31'
+)
+
+SELECT *
+FROM dates;
+
+-- 7월 달력에서 주말 빼보자
+
+WITH RECURSIVE dates AS
+(
+    SELECT DATE('2026-07-01') dt
+
+    UNION ALL
+
+    SELECT DATE_ADD(dt, INTERVAL 1 DAY)
+    FROM dates
+    WHERE dt<'2026-07-31'
+)
+
+SELECT *
+FROM dates;
+
+-- 10월 달력 만들기
+with recursive m10 as(
+	select date('2026-10-01') d
+    union all
+    select date_add(d, interval 1 day)
+    from m10
+    where d<'2026-10-31'
+)
+select *
+from m10;
+
+-- 10월에서 요일을 포함한 달력을 주말 빼고 출력
+with recursive m10 as(
+	select date('2026-10-01') d
+    union all
+    select date_add(d, interval 1 day)
+    from m10
+    where d<'2026-10-31'
+)
+select d, weekday(d) 요일
+from m10
+where weekday(d) not in (5,6); -- where weekday(d) < 5;
+
+
+
+-- 위의 코드에서 요일이 숫자로 되있는데 요일로 아예 한글로 나오게하자
+with recursive m10 as(
+	select date('2026-10-01') d
+    union all
+    select date_add(d, interval 1 day)
+    from m10
+    where d<'2026-10-31'
+)
+select d, case weekday(d) when 0 then '월' 
+						  when 1 then '화'
+						  when 2 then '수' 
+						  when 3 then '목' 
+						  when 4 then '금' 
+                            end 요일
+from m10
+where weekday(d) not in (5,6); -- where weekday(d) < 5;
+
+
+
+-- 공휴일까지 빼보자
+-- 위의 코드에서 요일이 숫자로 되있는데 요일로 아예 한글로 나오게하자
+with recursive m10 as(
+	select date('2026-10-01') d
+    union all
+    select date_add(d, interval 1 day)
+    from m10
+    where d<'2026-10-31'
+),
+holiday as(
+	select date('2026-10-05') d, '개천절 대체공휴일' title
+    union all
+    select date('2026-10-09') d, '한글날' title
+)
+
+
+
+select d, case weekday(d) when 0 then '월' 
+						  when 1 then '화'
+						  when 2 then '수' 
+						  when 3 then '목' 
+						  when 4 then '금' 
+                            end 요일
+from m10
+where weekday(d) not in (5,6); -- where weekday(d) < 5;
+
+
+
+
+-- 쉬는 날이 10월달에 몇일인지 체크
+
+with recursive m10 as(
+	select date('2026-10-01') d
+    union all
+    select date_add(d, interval 1 day)
+    from m10
+    where d<'2026-10-31'
+),
+holiday as(
+	select date('2026-10-05') d, '개천절 대체공휴일' title
+    union all
+    select date('2026-10-09') d, '한글날' title
+),
+
+work_m10 as(select d, case weekday(d) when 0 then '월' 
+						  when 1 then '화'
+						  when 2 then '수' 
+						  when 3 then '목' 
+						  when 4 then '금' 
+                            end 요일
+from holiday
+)
+select count(*)
+from work_m10;
+
+
+
+
+
+-- 주말, 공휴일 제외하고 평일이 10월에 몇일인지 추가
+
+with recursive m10 as (
+	select date('2026-10-01') d
+    union all
+    select date_add(d, interval 1 day)
+    from m10
+    where d < '2026-10-31'
+), 
+holiday as (
+	select date('2026-10-05') d, '개천절 대체공휴일' title
+    union all
+    select date('2026-10-09') d, '한글날' title
+),
+work_m10 as (
+	select d, 
+		case weekday(d) 
+			when 0 then '월'
+            when 1 then '화'
+            when 2 then '수'
+            when 3 then '목'
+            when 4 then '금'
+		end 요일
+	from m10
+	where weekday(d) < 5
+
+	except
+
+	select d, 
+			case weekday(d) 
+				when 0 then '월'
+				when 1 then '화'
+				when 2 then '수'
+				when 3 then '목'
+				when 4 then '금'
+			end 요일
+	from holiday
+)
+
+select *,
+		concat(count(*) over(),'일') 공휴일제외
+from work_m10;
+
+
+-- 여기서부터는 게시글 30 view
+
+select *
+from actor_info; -- table이 아닌 view도 from에 사용 가능
+
+
+select film_info
+from actor_info 
+where first_name = 'ED'; -- from table했을 때보다 훨씬 짧고 간단해짐
+
+
+
+
+with a2 as (
+select distinct first_name
+from actor
+)
+select *
+from a2
+where first_name like '%a%'; -- 매번 with a2 as ( ) 이걸 하기 귀찮아서 view로 만든다
+
+
+-- view로 만들면 스키마에 생성됨, with는 임시지만 view는 반 영구적임
+create view a2 as
+select distinct first_name
+from actor;
+
+select *
+from a2
+where first_name like'%a%';
+
+
+-- view를 만들고 나면 매번 코드로 안해도 이미 생성되있어서 사용 가능, 코드가 짧아짐
+
+select *
+from a2
+where first_name like'%a%';
+
+-- 데이터웨어하우스는 전체 데이터이고 일부로 자른 데이터 마트를 만들 때 view를 사용한다
